@@ -38,3 +38,11 @@ print('  End time: {} (UTC)'.format(end_time))
 
 # Testing
 print("Accuracy = {0}%".format(100*np.sum(knn.predict(x_test) == y_test)/len(y_test)))
+
+neighbors = list(range(1, 50, 2))
+cv_scores = []
+for k in neighbors:
+    knn = KNeighborsClassifier(n_neighbors=k)
+    scores = cross_val_score(knn, x_train, y_train, cv=10, scoring='accuracy')
+    cv_scores.append(scores.mean())
+print(cv_scores)
