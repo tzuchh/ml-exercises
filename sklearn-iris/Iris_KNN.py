@@ -1,48 +1,53 @@
 from sklearn import datasets
-import pandas as pd
-import seaborn as sns
-from sklearn.model_selection import train_test_split
-from matplotlib import pyplot as plt
 from sklearn.neighbors import KNeighborsClassifier
-import numpy as np
-import datetime
 from sklearn.model_selection import cross_val_score
+from matplotlib import pyplot as plt
+import numpy as np
+from sklearn.model_selection import train_test_split
+import datetime
+
+from sklearn.metrics import accuracy_score
 
 # Load the dataset
 iris = datasets.load_iris()
+kfold = 3
+n_validation = 20
 
-# Data exploration
-df = pd.DataFrame(iris.data)
-df.columns = [iris.feature_names[0], iris.feature_names[1], iris.feature_names[2], iris.feature_names[3]]
-df['class'] = iris.target
-sns.pairplot(df, hue='class', plot_kws=dict(marker="+", linewidth=1),
-    palette=['blue', 'red' ,'green'], corner=True) 
+# K-fold Cross Validation
+neighbors = list(range(1, n_validation+1, 1))
+mse = []
+for k in neighbors:
+    knn = KNeighborsClassifier(n_neighbors=k)
+    knn.fit(iris.data, iris.target)
+    scores = cross_val_score(knn, iris.data, iris.target, cv=kfold, scoring='accuracy')
+    mse.append(1 - scores.mean())
+
+plt.plot(neighbors, mse)
+plt.xlabel("Number of Neighbors K")
+plt.ylabel("Misclassification Error")
+plt.xticks(np.arange(0, n_validation+1, 1))
+plt.grid()
 plt.show()
+
+optimal_k = neighbors[mse.index(min(mse))]
+print("\nThe optimal K: {}".format(optimal_k))
 
 # Prepare data
 x_train, x_test, y_train, y_test = train_test_split(iris.data, iris.target,
-    test_size=0.2, shuffle = True, random_state = 0)
-print("x_train shape: {}".format(x_train.shape))
+    test_size=1.0/kfold, shuffle = True, random_state = 42)
+print("\nx_train shape: {}".format(x_train.shape))
 print("x_test shape: {}".format(x_test.shape))
 print("y_train shape: {}".format(y_train.shape))
 print("y_test shape: {}".format(y_test.shape))
 
 # Training
-print("Training...")
+print("\nTraining...")
 start_time = datetime.datetime.now()
-knn = KNeighborsClassifier(n_neighbors=3)
+knn = KNeighborsClassifier(n_neighbors=optimal_k)
 knn.fit(x_train, y_train)
 end_time = datetime.datetime.now()
 print('Start time: {} (UTC)'.format(start_time))
 print('  End time: {} (UTC)'.format(end_time))
 
 # Testing
-print("Accuracy = {0}%".format(100*np.sum(knn.predict(x_test) == y_test)/len(y_test)))
-
-neighbors = list(range(1, 50, 2))
-cv_scores = []
-for k in neighbors:
-    knn = KNeighborsClassifier(n_neighbors=k)
-    scores = cross_val_score(knn, x_train, y_train, cv=10, scoring='accuracy')
-    cv_scores.append(scores.mean())
-print(cv_scores)
+print("\nAccuracy = {0}%".format(100*accuracy_score(knn.predict(x_test), y_test)))
