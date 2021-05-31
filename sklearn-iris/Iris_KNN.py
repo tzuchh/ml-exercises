@@ -10,10 +10,10 @@ from sklearn.metrics import accuracy_score
 
 # Load the dataset
 iris = datasets.load_iris()
-kfold = 3
-n_validation = 20
 
 # K-fold Cross Validation
+kfold = 3
+n_validation = 20
 neighbors = list(range(1, n_validation+1, 1))
 mse = []
 for k in neighbors:
