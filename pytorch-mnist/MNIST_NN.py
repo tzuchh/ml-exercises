@@ -44,38 +44,47 @@ class Net(nn.Module):
 
 
 def train(args, model, device, train_loader, optimizer, epoch):
+    print('\nTraining epoch: {}/{}'.format(epoch, args.epochs))
     model.train()  # Set the module in training mode
-    for idx, (data, target) in enumerate(train_loader):
+    loss_sum = 0
+    for batch_id, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         # Zero the parameter gradients
-        optimizer.zero_grad()
+        optimizer.zero_grad() # clear the gradients of all optimized variables
         output = model(data)
-        loss = F.nll_loss(output, target)
+        loss = F.nll_loss(output, target, reduction='mean')  # sum up batch loss
         loss.backward()
+        loss_sum += loss.item()*data.size(0)  # sum up total loss
         optimizer.step()
-        if idx % args.log_interval == 0:
-            print('Train Epoch: {}/{} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, args.epochs, idx * len(data), len(train_loader.dataset),
-                       100. * idx / len(train_loader), loss.item()))
-
+        # Display
+        if batch_id % args.log_interval == 0:
+            print('[{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                batch_id * len(data), len(train_loader.dataset),
+                100. * batch_id / len(train_loader), loss.item()))
+    average_loss = loss_sum / len(train_loader.dataset)
+    # Display
+    print('\nAverage loss of training set: {:.6f}'.format(average_loss))
+    return average_loss
 
 def test(model, device, test_loader):
     model.eval()  # Set the module in evaluation mode
-    test_loss = 0
+    loss_sum = 0
     correct = 0
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
-            test_loss += F.nll_loss(output, target, reduction='sum').item()  # sum up batch loss
+            loss = F.nll_loss(output, target, reduction='mean')  # sum up batch loss
+            loss_sum += loss.item()*data.size(0)  # sum up total loss
             predicted = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct += predicted.eq(target.view_as(predicted)).sum().item()
-
-        test_loss /= len(test_loader.dataset)
-
-        print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
-            test_loss, correct, len(test_loader.dataset),
+        average_loss = loss_sum / len(test_loader.dataset)
+        # Display
+        print('\nAverage loss of testing set: {:.6f}'.format(average_loss))
+        print('Accuracy: {}/{} ({:.2f}%)'.format(
+            correct, len(test_loader.dataset),
             100. * correct / len(test_loader.dataset)))
+        return average_loss
 
 
 def main():
@@ -113,9 +122,9 @@ def main():
     else:
         # Training settings
         parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
-        parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+        parser.add_argument('--batch-size', type=int, default=100, metavar='N',
                             help='input batch size for training (default: 64)')
-        parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
+        parser.add_argument('--test-batch-size', type=int, default=100, metavar='N',
                             help='input batch size for testing (default: 1000)')
         parser.add_argument('--epochs', type=int, default=3, metavar='N',
                             help='number of epochs to train (default: 3)')
@@ -123,7 +132,7 @@ def main():
                             help='learning rate (default: 0.002)')
         parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                             help='Learning rate momentum (default: 0.9)')
-        parser.add_argument('--log-interval', type=int, default=10, metavar='N',
+        parser.add_argument('--log-interval', type=int, default=100, metavar='N',
                             help='how many batches to wait before logging training status')
         parser.add_argument('--save-model', action='store_true', default=False,
                             help='For Saving the current Model')
@@ -161,11 +170,11 @@ def main():
 
         start_time = datetime.datetime.now()
         for epoch in range(1, args.epochs + 1):
-            train(args, model, device, train_loader, optimizer, epoch)
-            test(model, device, test_loader)
+            train_loss = train(args, model, device, train_loader, optimizer, epoch)
+            valid_loss = test(model, device, test_loader)
             optimizer.step()
         end_time = datetime.datetime.now()
-        print('Start time: {}'.format(start_time))
+        print('\nStart time: {}'.format(start_time))
         print('  End time: {}'.format(end_time))
 
         if args.save_model:
